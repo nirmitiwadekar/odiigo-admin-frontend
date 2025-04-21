@@ -11,7 +11,7 @@ import {
   RaRecord,
 } from "react-admin";
 
-const apiUrl = "http://localhost:3000/api";
+const apiUrl = "http://localhost:4000/api";
 
 const httpClient = (url: string, options: any = {}) => {
   if (!options.headers) {

@@ -162,54 +162,91 @@
 
 // export default App;
 
-// src/App.tsx
+
+
+
+
+
+
+
+
+
+// // src/App.tsx neww working till basic login
+// import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+// import { useState, useEffect } from 'react';
+// import AdminDashboard from './AdminDashboard';
+// import LandingPage from './resources/LandingPage';
+// import AdminLogin from './resources/adminLogin';
+
+// function App() {
+//   const [authenticated, setAuthenticated] = useState(false);
+  
+//   // Check if user is authenticated on mount
+//   useEffect(() => {
+//     const checkAuth = () => {
+//       const token = localStorage.getItem('adminToken');
+//       setAuthenticated(!!token);
+//     };
+
+//     // Initial check
+//     checkAuth();
+    
+//     // Listen for storage events (when token is removed by authProvider)
+//     window.addEventListener('storage', checkAuth);
+    
+//     return () => {
+//       window.removeEventListener('storage', checkAuth);
+//     };
+//   }, []);
+
+//   return (
+//     <BrowserRouter>
+//       <Routes>
+//         <Route path="/" element={<LandingPage />} />
+//         <Route 
+//           path="/admin-login" 
+//           element={
+//             authenticated ? 
+//               <Navigate to="/admin" /> : 
+//               <AdminLogin onLoginSuccess={() => setAuthenticated(true)} />
+//           } 
+//         />
+//         <Route 
+//           path="/admin/*" 
+//           element={
+//             authenticated ? 
+//               <AdminDashboard /> : 
+//               <Navigate to="/admin-login" />
+//           } 
+//         />
+//       </Routes>
+//     </BrowserRouter>
+//   );
+// }
+
+// export default App;
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
 import AdminDashboard from './AdminDashboard';
-import LandingPage from './resources/LandingPage';
 import AdminLogin from './resources/adminLogin';
+import ForgotPassword from './resources/ForgotPassword';
+import ResetPassword from './resources/ResetPassword';
 
 function App() {
-  const [authenticated, setAuthenticated] = useState(false);
-  
-  // Check if user is authenticated on mount
-  useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem('adminToken');
-      setAuthenticated(!!token);
-    };
-
-    // Initial check
-    checkAuth();
-    
-    // Listen for storage events (when token is removed by authProvider)
-    window.addEventListener('storage', checkAuth);
-    
-    return () => {
-      window.removeEventListener('storage', checkAuth);
-    };
-  }, []);
-
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route 
-          path="/admin-login" 
-          element={
-            authenticated ? 
-              <Navigate to="/admin" /> : 
-              <AdminLogin onLoginSuccess={() => setAuthenticated(true)} />
-          } 
-        />
-        <Route 
-          path="/admin/*" 
-          element={
-            authenticated ? 
-              <AdminDashboard /> : 
-              <Navigate to="/admin-login" />
-          } 
-        />
+        {/* Auth Routes */}
+        <Route path="/admin-login" element={<AdminLogin onLoginSuccess={() => {}} />} />
+        <Route path="/admin-forgot-password" element={<ForgotPassword />} />
+        <Route path="/admin-reset-password/:token" element={<ResetPassword />} />
+        
+        {/* Main Admin App */}
+        <Route path="/admin/*" element={<AdminDashboard />} />
+        
+        {/* Default redirect */}
+        <Route path="/" element={<Navigate to="/admin" replace />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </BrowserRouter>
   );

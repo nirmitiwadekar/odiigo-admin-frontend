@@ -61,6 +61,7 @@ const AdminDashboard = () => {
       authProvider={authProvider}
       requireAuth
       basename="/admin"
+      
 
     >
       <Resource
