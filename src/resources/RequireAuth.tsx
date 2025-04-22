@@ -20,7 +20,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
   const location = useLocation();
 
   useEffect(() => {
-    // Check if user is authenticated
+    // check if user is authenticated
     const checkAuth = async () => {
       const token = localStorage.getItem('adminToken');
       
@@ -43,7 +43,7 @@ export default function RequireAuth({ children }: RequireAuthProps) {
     
     checkAuth();
     
-    // Listen for storage changes (e.g., logout in another tab)
+    // listen for storage changes (e.g.-> logout in another tab)
     const handleStorageChange = () => {
       const token = localStorage.getItem('adminToken');
       if (!token) {

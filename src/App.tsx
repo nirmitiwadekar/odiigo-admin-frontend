@@ -231,22 +231,31 @@ import AdminDashboard from './AdminDashboard';
 import AdminLogin from './resources/adminLogin';
 import ForgotPassword from './resources/ForgotPassword';
 import ResetPassword from './resources/ResetPassword';
+import LandingPage from './resources/LandingPage'; 
+import RequireAuth from './resources/RequireAuth'; 
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Landing Page */}
+        <Route path="/" element={<LandingPage />} />
+        
         {/* Auth Routes */}
         <Route path="/admin-login" element={<AdminLogin onLoginSuccess={() => {}} />} />
         <Route path="/admin-forgot-password" element={<ForgotPassword />} />
+        {/* <Route path="/admin-reset-password/:token" element={<ResetPassword />} /> */}
+
+
+        {/* Reset password routes - support both URL formats */}
         <Route path="/admin-reset-password/:token" element={<ResetPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} /> {/* Support for emails with old format */}
+
+        {/*  Admin App - Protected with RequireAuth */}
+        <Route path="/admin/*" element={<RequireAuth><AdminDashboard /></RequireAuth>} />
         
-        {/* Main Admin App */}
-        <Route path="/admin/*" element={<AdminDashboard />} />
-        
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/admin" replace />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
+        {/*  redirect to landing page instead of admin */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

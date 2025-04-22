@@ -126,7 +126,9 @@ const authProvider: AuthProvider = {
     // Dispatch storage event to notify other components
     window.dispatchEvent(new Event('storage'));
     
-    // This ensures React Admin knows to redirect to login
+    // Force redirect to login page
+    window.location.href = '/admin-login';
+    
     return Promise.resolve();
   },
 
