@@ -14,7 +14,7 @@ import {
   DialogActions
 } from '@mui/material';
 import axios from 'axios';
-
+import {API_URL} from '../config'
 interface S3Image {
   key: string;
   url: string;
@@ -48,7 +48,7 @@ const S3ImageSelector = forwardRef<{ getSelectedIconKey: () => string | null }, 
       setLoading(true);
       setError(null);
       try {
-        const response = await axios.get('http://localhost:3000/api/car-brands/icons');
+        const response = await axios.get(`${API_URL}/api/car-brands/icons`);
         console.log('S3 icons response:', response.data);
         
         if (Array.isArray(response.data)) {
