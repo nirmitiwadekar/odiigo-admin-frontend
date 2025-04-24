@@ -171,8 +171,7 @@ import {
   BooleanInput,
   Create,
   useNotify,
-  useRefresh,
-  useRedirect,
+  // useRedirect,
   EditButton,
   DeleteButton,
   ReferenceArrayInput,
@@ -180,278 +179,325 @@ import {
   useGetList,
   FunctionField,
   RaRecord,
-  FormDataConsumer,
   useGetMany,
+  useDataProvider, // Uncommented this import
+  useRefresh,      // Added refresh hook
 } from "react-admin";
 import { useEffect, useState } from "react";
 import { Box, Chip, Typography } from "@mui/material";
-import { useFormContext } from "react-hook-form";
+import { useFormContext, useWatch } from "react-hook-form";
 
-// Fixed to handle both IDs and fully populated objects
+// Improved component to display pincode arrays in the list view
 const PincodeArrayField = ({ record }: { record?: RaRecord }) => {
-  if (!record || !record.service_pincodes) {
-    return <span>No pincodes assigned</span>;
+  if (!record) return <span>No record</span>;
+
+  // handles-> when service_pincodes is undefined or empty
+  if (!record.service_pincodes || record.service_pincodes.length === 0) {
+      return <span>No pincodes assigned</span>;
   }
 
-  // Check if we have a populated array with objects
   if (typeof record.service_pincodes[0] === 'object' && record.service_pincodes[0] !== null) {
-    // We already have the full pincode objects, just format and display them
-    return (
-      <span>
-        {record.service_pincodes.map((pincode: any) => 
-          `${pincode.area} (${pincode.pincode})`
-        ).join(", ")}
-      </span>
-    );
+      // We already have the full pincode objects, just format and display them
+      return (
+          <span>
+              {record.service_pincodes.map((pincode: any) =>
+                  `${pincode.area} (${pincode.pincode})`
+              ).join(", ")}
+          </span>
+      );
   }
 
   // If we just have IDs, then we need to fetch the pincodes
   const [pincodeData, setPincodeData] = useState<string[]>([]);
 
   const {
-    data: pincodes,
-    isLoading,
-    error,
+      data: pincodes,
+      isLoading,
+      error,
   } = useGetList("pincodes", {
-    pagination: { page: 1, perPage: 100 },
+      pagination: { page: 1, perPage: 100 },
   });
 
   useEffect(() => {
-    if (!isLoading && !error && pincodes && record?.service_pincodes) {
-      const matchedPincodes = record.service_pincodes.map((id: string) => {
-        const pincode = pincodes.find(p => p.id === id || p._id === id);
-        return pincode
-          ? `${pincode.area} (${pincode.pincode})`
-          : "Unknown Pincode";
-      });
+      if (!isLoading && !error && pincodes && record?.service_pincodes) {
+          const matchedPincodes = record.service_pincodes.map((id: string) => {
+              const pincode = pincodes.find(p => p.id === id || p._id === id);
+              return pincode
+                  ? `${pincode.area} (${pincode.pincode})`
+                  : "Unknown Pincode";
+          });
 
-      setPincodeData(matchedPincodes);
-    }
+          setPincodeData(matchedPincodes);
+      }
   }, [pincodes, record, isLoading, error]);
 
   if (isLoading) return <span>Loading...</span>;
   if (error) return <span>Error loading pincodes</span>;
 
   return (
-    <span>
-      {pincodeData.length > 0 ? pincodeData.join(", ") : "No Pincodes Assigned"}
-    </span>
+      <span>
+          {pincodeData.length > 0 ? pincodeData.join(", ") : "No Pincodes Assigned"}
+      </span>
   );
 };
 
-// Optimized component for Pincode Selection with chips display - only for selected pincodes
 const PincodeSelectionInput = () => {
   const form = useFormContext();
+  // Directly watch the service_pincodes field for real-time updates
+  const selectedPincodeIds = useWatch({ name: "service_pincodes" }) || [];
+  const [normalizedIds, setNormalizedIds] = useState<string[]>([]);
+
+  // process IDs to handle both string and object formats
+  useEffect(() => {
+      const processedIds = selectedPincodeIds
+          .map((p: any) => typeof p === "object" ? (p.id || p._id) : p)
+          .filter(Boolean);
+      setNormalizedIds(processedIds);
+
+      const currentValue = form.getValues("service_pincodes");
+      if (JSON.stringify(currentValue) !== JSON.stringify(processedIds)) {
+          form.setValue("service_pincodes", processedIds, {
+              shouldDirty: true,
+              shouldValidate: true,
+          });
+      }
+  }, [selectedPincodeIds, form]);
+
+  // Get detailed data
+  const { data: selectedPincodes = [], isLoading: isLoadingSelected } = useGetMany(
+      "pincodes",
+      { ids: normalizedIds },
+      { enabled: normalizedIds.length > 0 }
+  );
+
+  // handle individual pincode removal
+  const handlePincodeRemove = (pincodeId: string) => {
+      const updatedIds = normalizedIds.filter(id => id !== pincodeId);
+      form.setValue("service_pincodes", updatedIds, {
+          shouldDirty: true,
+          shouldValidate: true,
+      });
+  };
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
-        Service Areas
-      </Typography>
-      
-      <ReferenceArrayInput source="service_pincodes" reference="pincodes">
-        <SelectArrayInput
-          optionText={(choice) =>
-            choice && choice.area && choice.pincode
-              ? `${choice.area} (${choice.pincode})`
-              : choice?.id || "Unknown Pincode"
-          }
-          optionValue="id"
-          label="Service Pincodes"
-          fullWidth
-        />
-      </ReferenceArrayInput>
+      <Box sx={{ mt: 2 }}>
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+              Service Areas
+          </Typography>
 
-      {/* Display Selected Pincodes */}
-      <FormDataConsumer>
-        {({ formData }) => {
-          // Use scopedFormData for access to the current field's value
-          const selectedPincodeIds = formData?.service_pincodes || [];
-          
-          // Only proceed if we have selected pincodes
-          if (!selectedPincodeIds.length) {
-            return (
-              <Box sx={{ mt: 2, color: 'text.secondary', fontStyle: 'italic' }}>
-                No service areas selected
-              </Box>
-            );
-          }
-          
-          // Deduplicate selected pincode IDs
-          const uniqueSelectedIds = [...new Set(
-            selectedPincodeIds.map((p: any) => 
-              typeof p === "object" ? p.id || p._id : p
-            )
-          )];
-          
-          // Get data only for selected pincodes
-          const { data: pincodesData = [], isLoading } = useGetMany(
-            "pincodes",
-            {
-              ids: uniqueSelectedIds,
-            }
-          );
+          {/* Standard Selection Component */}
+          <ReferenceArrayInput source="service_pincodes" reference="pincodes">
+              <SelectArrayInput
+                  optionText={(choice) =>
+                      choice && choice.area && choice.pincode
+                          ? `${choice.area} (${choice.pincode})`
+                          : choice?.id || "Unknown Pincode"
+                  }
+                  optionValue="id"
+                  label="Service Pincodes"
+                  fullWidth
+              />
+          </ReferenceArrayInput>
 
-          if (isLoading) return <Box sx={{ mt: 2 }}>Loading selected areas...</Box>;
-          
-          // Filter out any undefined or null values
-          const validPincodes = pincodesData.filter(p => p);
-          
-          // Deduplicate by ID to ensure no duplicates are displayed
-          const uniquePincodes = Array.from(
-            new Map(validPincodes.map(p => [(p.id || p._id), p])).values()
-          );
+          {/* Selected Pincodes Display */}
+          <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                  Selected Service Areas:
+              </Typography>
 
-          // If no valid pincodes data was returned
-          if (uniquePincodes.length === 0) {
-            return (
-              <Box sx={{ mt: 2, color: 'text.secondary', fontStyle: 'italic' }}>
-                Could not load selected areas
-              </Box>
-            );
-          }
-
-          return (
-            <Box sx={{ mt: 2 }}>
-              <Box sx={{ fontWeight: "bold", mb: 1 }}>Selected Service Areas:</Box>
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                {uniquePincodes.map((pincode) => {
-                  const pincodeId = pincode.id || pincode._id;
-                  return (
-                    <Chip
-                      key={pincodeId}
-                      label={`${pincode.area} (${pincode.pincode})`}
-                      onDelete={() => {
-                        // Get current value
-                        const currentValue = form.getValues("service_pincodes") || [];
-                        
-                        // Create new array without the pincode to remove
-                        const newValue = currentValue.filter((p: any) => {
-                          const id = typeof p === "object" ? (p.id || p._id) : p;
-                          return id !== pincodeId;
-                        });
-                        
-                        // Update form value
-                        form.setValue("service_pincodes", newValue, {
-                          shouldDirty: true,
-                          shouldTouch: true,
-                          shouldValidate: true,
-                        });
-                        
-                        // Log values for debugging
-                        console.log('Removing pincode:', pincodeId);
-                        console.log('Previous value:', currentValue);
-                        console.log('New value:', newValue);
-                        console.log('Current form values:', form.getValues());
-                      }}
-                      color="primary"
-                      variant="outlined"
-                      size="small"
-                      sx={{ m: 0.5 }}
-                    />
-                  );
-                })}
-              </Box>
-            </Box>
-          );
-        }}
-      </FormDataConsumer>
-    </Box>
+              {isLoadingSelected && normalizedIds.length > 0 ? (
+                  <Box sx={{ color: 'text.secondary' }}>Loading selected areas...</Box>
+              ) : normalizedIds.length === 0 ? (
+                  <Box sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                      No service areas selected
+                  </Box>
+              ) : (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {selectedPincodes.map((pincode) => {
+                          if (!pincode) return null;
+                          const pincodeId = pincode.id || pincode._id;
+                          return (
+                              <Chip
+                                  key={pincodeId}
+                                  label={`${pincode.area} (${pincode.pincode})`}
+                                  onDelete={() => handlePincodeRemove(pincodeId)}
+                                  color="primary"
+                                  variant="outlined"
+                                  size="small"
+                                  sx={{ m: 0.5 }}
+                              />
+                          );
+                      })}
+                  </Box>
+              )}
+          </Box>
+      </Box>
   );
 };
 
-// List View with Edit & Delete Buttons
-export const ServiceBuddyList = () => (
-  <List>
-    <Datagrid>
-      <TextField source="name" label="Name" />
-      <TextField source="phone" label="Phone" />
-      <FunctionField
-        label="Service Areas"
-        render={(record: RaRecord) => <PincodeArrayField record={record} />}
-      />
-      <BooleanField source="is_available" label="Available" />
-      <EditButton />
-      <DeleteButton />
-    </Datagrid>
-  </List>
-);
+export const ServiceBuddyList = () => {
+  const refresh = useRefresh();
+  const [forceRefresh, setForceRefresh] = useState(0);
 
-// Create View
+  // Force refresh every 2 seconds to catch updates
+  useEffect(() => {
+      const timer = setInterval(() => {
+          setForceRefresh(prev => prev + 1);
+          refresh(); // Add actual data refresh
+      }, 2000);
+
+      return () => clearInterval(timer);
+  }, [refresh]);
+
+  return (
+      <List key={forceRefresh}>
+          <Datagrid>
+              <TextField source="name" label="Name" />
+              <TextField source="phone" label="Phone" />
+              <FunctionField
+                  label="Service Areas"
+                  render={(record: RaRecord) => <PincodeArrayField record={record} />}
+              />
+              <BooleanField source="is_available" label="Available" />
+              <EditButton />
+              <DeleteButton />
+          </Datagrid>
+      </List>
+  );
+};
+
+// Enhanced Create View with direct API update
 export const ServiceBuddyCreate = () => {
   const notify = useNotify();
+  // const redirect = useRedirect();
+  const dataProvider = useDataProvider(); // Uncommented this
   const refresh = useRefresh();
-  const redirect = useRedirect();
 
-  const handleSuccess = (_data: any) => {
-    notify("Service Buddy Created Successfully");
-    redirect("/serviceBuddies");
-    refresh();
+  const handleSuccess = async (data: any) => {
+      try {
+          // Make a direct update call to ensure pincodes are saved
+          if (data.service_pincodes && data.service_pincodes.length > 0) {
+              const normalizedPincodes = [...new Set(
+                  data.service_pincodes.map((p: any) =>
+                      typeof p === "object" ? (p.id || p._id) : p
+                  ).filter(Boolean)
+              )];
+
+              await dataProvider.update('serviceBuddies', {
+                  id: data.id || data._id,
+                  data: { service_pincodes: normalizedPincodes },
+                  previousData: data,
+              });
+          }
+
+          notify("Service Buddy Created Successfully", { type: 'success' });
+          refresh(); // Refresh the data
+          // redirect("/serviceBuddies");
+
+      } catch (error) {
+          console.error("Error ensuring pincodes are saved:", error);
+          notify("Error saving service buddy details", { type: 'error' });
+      }
   };
 
   return (
-    <Create 
-      mutationOptions={{ onSuccess: handleSuccess }}
-      transform={(data) => {
-        // Deduplicate service_pincodes before sending to the server
-        if (data.service_pincodes) {
-          data.service_pincodes = [...new Set(
-            data.service_pincodes.map((p: any) => 
-              typeof p === "object" ? p.id || p._id : p
-            )
-          )];
-        }
-        console.log("Create Form data being sent:", data);
-        return data;
-      }}
-    >
-      <SimpleForm>
-        <TextInput source="name" label="Name" required />
-        <TextInput source="phone" label="Phone" required />
-        <PincodeSelectionInput />
-        <BooleanInput
-          source="is_available"
-          label="Available"
-          defaultValue={true}
-        />
-      </SimpleForm>
-    </Create>
+      <Create
+          mutationOptions={{ onSuccess: handleSuccess }}
+          transform={(data) => {
+              // Ensure service_pincodes is always an array, even if empty
+              if (!data.service_pincodes) {
+                  data.service_pincodes = [];
+              } else {
+                  // Normalize IDs (convert object references to string IDs)
+                  data.service_pincodes = data.service_pincodes
+                      .map((p: any) => typeof p === "object" ? (p.id || p._id) : p)
+                      .filter(Boolean); // Remove any null/undefined values
+
+                  // Deduplicate
+                  data.service_pincodes = [...new Set(data.service_pincodes)];
+              }
+
+              console.log("Create Form data being sent:", data);
+              return data;
+          }}
+      >
+          <SimpleForm>
+              <TextInput source="name" label="Name" required />
+              <TextInput source="phone" label="Phone" required />
+              <PincodeSelectionInput />
+              <BooleanInput
+                  source="is_available"
+                  label="Available"
+                  defaultValue={true}
+              />
+          </SimpleForm>
+      </Create>
   );
 };
 
-// Edit View with fixed pincode removal
+// Enhanced Edit View with direct API update to ensure pincodes are saved
 export const ServiceBuddyEdit = () => {
   const notify = useNotify();
+  // const redirect = useRedirect();
+  const dataProvider = useDataProvider(); // Uncommented this
   const refresh = useRefresh();
 
-  const handleSuccess = (_data: any) => {
-    notify("Service Buddy Updated Successfully");
-    refresh();
+  const handleSuccess = async (data: any) => {
+      const recordId = data.id || data._id;
+
+      try {
+          // Make a direct update call to ensure pincodes are saved correctly
+          if (data.service_pincodes && Array.isArray(data.service_pincodes)) {
+              const normalizedPincodes = [...new Set(
+                  data.service_pincodes.map((p: any) =>
+                      typeof p === "object" ? (p.id || p._id) : p
+                  ).filter(Boolean)
+              )];
+
+              await dataProvider.update('serviceBuddies', {
+                  id: recordId,
+                  data: { service_pincodes: normalizedPincodes },
+                  previousData: data,
+              });
+          }
+
+          notify("Service Buddy Updated Successfully", { type: 'success' });
+          refresh(); // Ensure data is refreshed
+          // redirect("/serviceBuddies");
+      } catch (error) {
+          console.error("Error ensuring pincodes are saved:", error);
+          notify("Error updating service buddy details", { type: 'error' });
+      }
   };
 
   return (
-    <Edit 
-      mutationOptions={{ onSuccess: handleSuccess }}
-      transform={(data) => {
-        // Deduplicate service_pincodes before sending to the server
-        if (data.service_pincodes) {
-          data.service_pincodes = [...new Set(
-            data.service_pincodes.map((p: any) => 
-              typeof p === "object" ? p.id || p._id : p
-            )
-          )];
-        }
-        console.log("Edit Form data being sent:", data);
-        return data;
-      }}
-    >
-      <SimpleForm>
-        <TextInput source="name" label="Name" required />
-        <TextInput source="phone" label="Phone" required />
-        <PincodeSelectionInput />
-        <BooleanInput source="is_available" label="Available" />
-      </SimpleForm>
-    </Edit>
+      <Edit
+          mutationOptions={{ onSuccess: handleSuccess }}
+          transform={(data) => {
+              // Ensure service_pincodes is always an array, even if empty
+              if (!data.service_pincodes) {
+                  data.service_pincodes = [];
+              } else {
+                  // convert object references to string IDs
+                  data.service_pincodes = data.service_pincodes
+                      .map((p: any) => typeof p === "object" ? (p.id || p._id) : p)
+                      .filter(Boolean); // remove any null/undefined values
+
+                  // Deduplicate
+                  data.service_pincodes = [...new Set(data.service_pincodes)];
+              }
+
+              console.log("Edit Form data being sent:", data);
+              return data;
+          }}
+      >
+          <SimpleForm>
+              <TextInput source="name" label="Name" required />
+              <TextInput source="phone" label="Phone" required />
+              <PincodeSelectionInput />
+              <BooleanInput source="is_available" label="Available" />
+          </SimpleForm>
+      </Edit>
   );
 };
 

@@ -96,8 +96,8 @@
 import { useNavigate } from "react-router-dom";
 import { Box, Button, Typography, Stack } from "@mui/material";
 import logo from "../odiigo_logo.png";
-import bgImage2 from "../image(3).png"; // Person fixing car
-import bgImage4 from "../image(1).png"; // Payment illustration
+import bgImage2 from "../image(3).png"; 
+import bgImage4 from "../image(1).png"; 
 
 export default function LandingPage() {
   const navigate = useNavigate();
